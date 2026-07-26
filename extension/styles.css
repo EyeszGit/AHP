@@ -1,0 +1,56 @@
+* { box-sizing: border-box; }
+body {
+  width: 360px;
+  max-height: 560px;
+  overflow-y: auto;
+  font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  margin: 0;
+  padding: 12px;
+  color: #1b1b1b;
+}
+header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+h1 { font-size: 15px; margin: 0; }
+#count-badge { font-size: 11px; color: #6b7280; }
+
+#weights { background: #f5f7f9; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+.weight-row { display: grid; grid-template-columns: 70px 1fr 36px; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 4px; }
+.weight-row input[type="range"] { width: 100%; }
+.hint { font-size: 10px; color: #6b7280; margin: 6px 0 0; }
+
+.card {
+  display: grid;
+  grid-template-columns: 24px 1fr 44px 16px;
+  gap: 6px;
+  align-items: start;
+  padding: 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  position: relative;
+}
+.card.best { border-color: #1dbf73; background: #f1fbf6; }
+.rank { font-weight: 700; color: #6b7280; padding-top: 2px; }
+.title { font-size: 12.5px; font-weight: 600; color: #111827; text-decoration: none; display: block; }
+.title:hover { text-decoration: underline; }
+.meta { font-size: 10.5px; color: #6b7280; margin: 3px 0 6px; }
+.bars { display: flex; flex-direction: column; gap: 2px; }
+.bar { display: grid; grid-template-columns: 56px 1fr; align-items: center; gap: 4px; font-size: 9.5px; color: #6b7280; }
+.bar progress { width: 100%; height: 6px; }
+.score { font-weight: 700; font-size: 13px; padding-top: 2px; text-align: right; }
+.remove { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 14px; padding: 0; }
+.remove:hover { color: #ef4444; }
+.empty { font-size: 12px; color: #6b7280; text-align: center; padding: 20px 0; }
+
+footer { display: flex; gap: 8px; margin-top: 8px; }
+footer button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 6px;
+  border: none;
+  background: #1dbf73;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+footer button.danger { background: #fff; color: #ef4444; border: 1px solid #ef4444; }

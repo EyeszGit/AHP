@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AHP Candidate Evaluator</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <h1>Select the best candidate</h1>
+    <span id="count-badge">0 saved</span>
+  </header>
+
+  <section id="weights">
+    <div class="weight-row">
+      <label>Charisma</label>
+      <input type="range" id="w-charisma" min="0" max="100" value="59" />
+      <span id="w-charisma-val">0.59</span>
+    </div>
+    <div class="weight-row">
+      <label>Experience</label>
+      <input type="range" id="w-experience" min="0" max="100" value="28" />
+      <span id="w-experience-val">0.28</span>
+    </div>
+    <div class="weight-row">
+      <label>Cost</label>
+      <input type="range" id="w-cost" min="0" max="100" value="13" />
+      <span id="w-cost-val">0.13</span>
+    </div>
+    <p class="hint">Weights auto-normalize to sum to 1. Defaults match the weighting from the Google Sheet AHP model.</p>
+  </section>
+
+  <section id="results"></section>
+
+  <footer>
+    <button id="export-btn">Export CSV</button>
+    <button id="clear-btn" class="danger">Clear all</button>
+  </footer>
+
+  <script src="scoring.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
