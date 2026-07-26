@@ -1,117 +1,150 @@
-# Fiverr Candidate AHP Evaluator (Chrome extension scaffold)
+# Fiverr Candidate AHP Evaluator (Chrome extension)
 
-An MVP scaffold for the tool described in your "Extension Requirements" tab: scrape
-Fiverr gig pages and rank candidates against an AHP model, right from the browser.
+v0.2 — live AHP scoring directly on Fiverr / Fiverr Pro search, category, and
+saved-list pages, plus the original single-gig "add one candidate" flow.
 
 ## What's implemented
 
-- **Content script** (`content.js`): injects a "+ Add to AHP Evaluation" button on any
-  Fiverr gig page. Scrapes the currently-visible package's price, delivery time,
-  revisions, plus seller level, review score and review count — by reading the
-  page's visible text (regex-based), not brittle CSS class names, since Fiverr's
-  class names are auto-generated and change often.
-- **Storage** (`background.js`): saved candidates persist locally via
-  `chrome.storage.local`.
-- **Popup UI** (`popup.html/js`): lists saved candidates ranked by a live AHP score,
-  with sliders to adjust the three top-level weights (Experience / Charisma / Cost —
-  pre-filled with the weights from the Google Sheet AHP model: Experience 0.59,
-  Charisma 0.28, Cost 0.13, updated 2026-07-26), a progress-bar breakdown per
-  candidate, and CSV export.
-- **Scoring engine** (`scoring.js`): same shape as the Google Sheet model — min-max
-  normalization, equal-weighted leaves within each group, weighted combination.
+- **Grid mode** (the main feature): on any of these pages —
+  - a Pro-catalog or Full-catalog **search** (`pro.fiverr.com/search/gigs...`)
+  - a **category** page (`pro.fiverr.com/categories/...`)
+  - a saved **"Freelance network" list** (`pro.fiverr.com/workspace/freelance_network/lists/...`)
 
-## How to install and test it (step by step)
+  the content script auto-detects every visible candidate card, scores them
+  **against each other** (not a fixed dataset) with the AHP model, and injects:
+  - a rank + score badge on every card (`#1  0.74`)
+  - a green outline on the current top tier, dimming on the bottom tier, so
+    you can see which profiles are winning/losing at a glance
+  - ★ (track) and ✕ (discard) buttons on every card — discard removes a
+    candidate from the live scoring pool entirely (e.g. someone you already
+    know isn't right); track just flags one for your shortlist
+  - a floating panel (bottom-right) with weight sliders, a tracked/discarded
+    count, and the live ranked list — click a name to scroll to that card
+  - it **re-scores automatically** when Fiverr's own filters/search change
+    the visible cards (Fiverr does this via AJAX, not a page reload — a
+    `MutationObserver` watches for it)
+  - decisions (tracked/discarded) and a snapshot of each candidate's data
+    persist per page-context, so revisiting the same search/category/list
+    later restores what you'd already decided
 
-### 1. Get the folder onto your computer
-- If you're working from the GitHub repo: go to
-  `github.com/EyeszGit/AHP` → open the `extension` folder → click "Code" (or use
-  `git clone`/"Download ZIP" on the repo) so you have a local copy of the
-  `extension` folder with all 9 files (`manifest.json`, `content.js`, etc.)
-  somewhere on your machine, e.g. `Downloads/AHP/extension`.
-- If you're using the zip I gave you directly in this chat: unzip it anywhere,
-  you'll get an `extension` folder — that's the one you'll load in the next step.
+- **Single-gig mode** (legacy, unchanged in spirit): on an individual gig or
+  freelancer profile page, a "+ Add to AHP Evaluation" button pulls that one
+  candidate's fuller detail (price/delivery/revisions) into a separate
+  "manual" bucket, viewable in the popup.
+
+- **Popup**: two sections — manually-added candidates (ranked, exportable),
+  and every grid page you've used the floating panel on (with a per-page CSV
+  export of whatever you tracked/discarded there).
+
+## The two card types it recognizes (confirmed against live pages, 2026-07-26)
+
+| Page type | CSS selector | Fields it gets |
+|---|---|---|
+| Fiverr Pro search / category / saved list | `.listings-expert-card-container` | name, rating, review count, price ("From €X"), Vetted Pro flag, "Highly responsive" flag |
+| Full-catalog gig grid (search on either domain) | `.gig-wrapper.basic-gig-card` | name, seller level, gig title, rating, review count, price |
+
+Both were checked live: Fiverr Pro reuses the exact same "expert card"
+component across search, category, AND saved lists, and the classic gig-card
+grid (`.gig-wrapper.basic-gig-card`) shows up when you toggle "Full catalog"
+on pro.fiverr.com. If Fiverr redesigns either component, these two selectors
+are the first thing to re-check (`chrome://extensions` → click the extension's
+"service worker"/"Inspect views" isn't needed — just open DevTools on the
+Fiverr page itself and check `document.querySelectorAll('.listings-expert-card-container')`
+still returns cards).
+
+**Grid-mode field limitation:** cards only expose rating / review count /
+price / seller level / a couple of quality flags — not delivery time or
+revisions (those only appear inside an individual gig page). So grid-mode
+scoring uses an adapted, smaller version of the AHP model:
+- **Experience** = seller level + review count (+ small Vetted-Pro bump)
+- **Cost** = price (lower is better)
+- **Charisma** = rating (+ small "highly responsive" bump)
+
+This is intentionally simpler than the full Google Sheet model (which also
+uses delivery time, revisions, and per-tier pricing) — those richer fields are
+still only available via single-gig mode's deeper scrape.
+
+## How to install and test it
+
+### 1. Get the folder
+- From GitHub: `github.com/EyeszGit/AHP` → "Code" → Download ZIP (or clone),
+  then use the `extension` folder inside it.
+- Or unzip the file attached in chat — same folder.
 
 ### 2. Load it into Chrome
-1. Open Chrome and go to `chrome://extensions` (type that directly into the
-   address bar).
-2. Turn on **Developer mode** — toggle switch, top-right corner of the page.
-3. Click **Load unpacked** (top-left, appears once Developer mode is on).
-4. In the file picker, select the `extension` folder itself (not a zip, not a
-   file inside it — the folder containing `manifest.json`).
-5. It should appear in your extensions list as "Fiverr Candidate AHP Evaluator".
-   If Chrome shows a red error instead, click "Errors" to see what it's
-   complaining about (most likely a typo if you hand-edited a file).
+1. Go to `chrome://extensions`.
+2. Turn on **Developer mode** (top-right toggle).
+3. Click **Load unpacked**, select the `extension` folder (the one containing
+   `manifest.json`).
+4. Pin it: puzzle-piece icon in the toolbar → find "Fiverr Candidate AHP
+   Evaluator" → click the pin.
 
-### 3. Pin it so it's easy to reach
-- Click the puzzle-piece icon in Chrome's toolbar (top-right) → find "Fiverr
-  Candidate AHP Evaluator" → click the pin icon so it stays visible in the
-  toolbar.
+### 3. Try grid mode (the main feature)
+1. Go to a Fiverr Pro search, e.g.
+   `pro.fiverr.com/search/gigs?query=video game music&expert_listings=true`,
+   a category page, or one of your saved lists under "Freelance network".
+2. Within a second or two you should see numbered score badges appear on the
+   cards, a green outline on the top-tier ones, and a floating panel bottom-right.
+3. Try Fiverr's own filters (budget, category, etc.) — the badges and panel
+   should update to re-rank just the remaining, filtered set.
+4. Click ★ on a card to track it, ✕ to discard it from the ranking pool —
+   watch the panel's counts and the other cards' ranks update.
+5. Drag the panel's weight sliders to see the ranking shift live.
 
-### 4. Scrape some candidates
-1. Go to any Fiverr gig page, e.g. one of the candidate URLs from the Google
-   Sheet's DOC1 tab.
-2. You should see a green **"+ Add to AHP Evaluation"** button float in near
-   the top-right of the page. If you don't see it within a couple of seconds,
-   refresh the page.
-3. Click it. It'll briefly say "✓ Added" if it worked.
-4. Repeat on a few more gig pages (open each in a new tab) to build up a set of
-   candidates to compare.
+### 4. Try single-gig mode
+On an individual gig or freelancer profile page, click the green
+"+ Add to AHP Evaluation" button, then open the extension's popup icon to see
+it in the "Manually added" list.
 
-### 5. See the ranking
-1. Click the extension's icon in your toolbar (the one you pinned).
-2. The popup shows every saved candidate, ranked best-to-worst, with a score
-   and a breakdown bar for Experience / Cost / Charisma.
-3. Drag the sliders at the top to try different weight balances — the ranking
-   recalculates live. They default to this project's current AHP weights
-   (Experience 0.59 / Charisma 0.28 / Cost 0.13).
-4. Click **Export CSV** to save the current ranking as a spreadsheet file, or
-   the **×** on a card to remove that candidate, or **Clear all** to start over.
+### 5. See everything in the popup
+Click the pinned extension icon:
+- **Manually added** section: single-gig-mode candidates, ranked, with CSV export.
+- **Live grid pages** section: every search/category/list you've used grid mode
+  on, with a tracked/discarded count and an **Export** button per page.
 
-### 6. If you edit the code afterwards
-Chrome doesn't auto-reload unpacked extensions. After changing any file:
-1. Go back to `chrome://extensions`
-2. Click the circular reload icon on the extension's card
-3. Refresh any open Fiverr tabs so the updated content script takes effect
+### 6. After editing any file
+Chrome doesn't auto-reload unpacked extensions:
+1. `chrome://extensions` → click the reload icon on the extension's card.
+2. Refresh any open Fiverr tabs.
 
 ### Troubleshooting
-- **Button doesn't show up on a gig page** → refresh the page; Fiverr is a
-  single-page app and the script sometimes loads before the page content does.
-- **Popup says "No candidates yet"** → you haven't clicked "+ Add to AHP
-  Evaluation" on a gig page yet, or storage got cleared.
-- **Wrong/missing price or delivery info** → the scraper reads whichever
-  package tab (Basic/Standard/Premium) is currently open on the page — click
-  the tier you want captured before clicking the Add button.
+- **No badges/panel on a search/category/list page** → refresh the page (Fiverr
+  is a single-page app and can finish loading after our script first runs);
+  if it still doesn't show up, open DevTools Console on that page and look for
+  `[AHP]` warnings, or check whether `.listings-expert-card-container` /
+  `.gig-wrapper.basic-gig-card` still exist in the page (Fiverr may have
+  changed its markup — see the table above).
+- **Ranking looks off / all similar scores** → with very few cards visible
+  (e.g. a 2-person saved list), min-max normalization has little to work with;
+  this is expected, not a bug — it gets more meaningful with more candidates
+  on screen.
+- **Popup's manual section is empty** → that's separate from grid mode; it
+  only fills up via the single-gig "+ Add to AHP Evaluation" button.
+- **A tracked/discarded decision disappeared** → decisions are stored per
+  page (by search query / category path / list ID) — a different query or
+  category is treated as a different context, by design.
 
-## Known limitations / what's NOT done yet
+## Known limitations / what's still not done
 
-Matched against your Extension Requirements doc:
-
-- **User Authentication** — not implemented. This scaffold has no accounts; it's
-  single-user, local-storage only. Needed for a real multi-user product.
-- **Data Management / GDPR / encryption** — not implemented. Data sits in
-  `chrome.storage.local`, unencrypted, on the user's machine only (arguably fine for
-  a personal tool, not sufficient if this becomes a shared/multi-user product).
-- **One tier per gig** — a gig page only shows one package (Basic/Standard/Premium)
-  at a time; the button only captures whichever tier is open. The Google Sheet's
-  "best tier per candidate" logic isn't ported yet — would need the content script
-  to auto-click through all three tabs before saving.
-- **Customer Satisfaction / response rate / positive-negative review split** — not
-  scraped; Fiverr's gig page doesn't surface these as plain text the way it does
-  price/delivery/reviews/level. Would need the seller's profile page as a second
-  scrape target.
-- **Customization Options** — only the 3 top-level weights are user-adjustable so
-  far; sub-criteria weights are fixed equal-within-group, matching your "equal
-  weight" decision for the spreadsheet analysis.
-- **Cross-browser** — built and tested conceptually for Chrome (Manifest V3) only,
-  per your "Google Chrome" + "Fiverr" target platforms note (Fiverr itself isn't a
-  browser — flagging in case that line in the requirements doc meant something
-  else, e.g. Firefox).
+- **User Authentication / accounts** — none; single-user, local-storage only.
+- **Data Management / GDPR / encryption** — none; everything sits in
+  `chrome.storage.local`, unencrypted, on your machine only.
+- **No "best tier per candidate" in grid mode** — that richer per-tier logic
+  from the Google Sheet only exists in single-gig mode right now.
+- **Agency cards** (on category pages, e.g. team profiles) are parsed
+  best-effort — they may be missing rating/price fields since agencies show
+  team-member lists instead.
+- **MutationObserver self-trigger guard is timing-based** (a ~1-frame window
+  after each of our own renders) — in the rare case Fiverr re-renders the grid
+  in that exact window, the re-scan could be delayed until the next change.
 
 ## Suggested next steps
 
-1. Test the unpacked extension against a few real gig pages and fix any scraping
-   misses (Fiverr occasionally A/B tests page layouts).
-2. Add tab-clicking so all 3 tiers get captured per gig (closes the biggest gap
-   vs. the spreadsheet model).
-3. Decide whether this stays a personal local tool or needs real accounts — that
-   decision drives whether auth/GDPR work is worth doing at all.
+1. Live-test against a broader set of real searches/categories/lists and
+   report back anything that doesn't parse (a card with no badge, or an
+   obviously wrong price/rating) so selectors can be adjusted.
+2. If deeper per-candidate detail (delivery time, revisions, per-tier pricing)
+   is wanted in grid mode too, extend it to open each profile in the
+   background and merge in the single-gig fields.
+3. Decide whether this stays a personal local tool or needs real accounts —
+   drives whether auth/GDPR work is worth doing at all.

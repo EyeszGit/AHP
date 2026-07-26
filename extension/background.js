@@ -1,28 +1,30 @@
 // background.js (Manifest V3 service worker)
-// Central storage for scraped candidates. Local-only for this MVP scaffold
-// (see README "Data Management" section for what's still needed for GDPR-grade
-// storage per the Extension Requirements doc).
+//
+// Grid-mode data (per-context tracked/discarded decisions, live weights) is
+// written directly by content.js via chrome.storage.local — no background
+// round-trip needed for that.
+//
+// This service worker only handles the legacy single-gig-page "manual add"
+// flow (content.js's injectSingleGigButton), storing scraped single gigs
+// under the "manualCandidates" key so the popup can list/export them.
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  if (msg.type === "SAVE_GIG") {
-    chrome.storage.local.get({ candidates: [] }, ({ candidates }) => {
-      const existingIdx = candidates.findIndex((c) => c.url === msg.gig.url);
-      if (existingIdx >= 0) {
-        candidates[existingIdx] = msg.gig; // refresh existing entry
-      } else {
-        candidates.push(msg.gig);
-      }
-      chrome.storage.local.set({ candidates }, () => {
-        sendResponse({ ok: true, count: candidates.length });
+  if (msg.type === "SAVE_MANUAL_GIG") {
+    chrome.storage.local.get({ manualCandidates: [] }, ({ manualCandidates }) => {
+      const idx = manualCandidates.findIndex((c) => c.id === msg.gig.id);
+      if (idx >= 0) manualCandidates[idx] = msg.gig;
+      else manualCandidates.push(msg.gig);
+      chrome.storage.local.set({ manualCandidates }, () => {
+        sendResponse({ ok: true, count: manualCandidates.length });
       });
     });
-    return true; // keep the message channel open for the async sendResponse
+    return true;
   }
 
-  if (msg.type === "DELETE_GIG") {
-    chrome.storage.local.get({ candidates: [] }, ({ candidates }) => {
-      const next = candidates.filter((c) => c.url !== msg.url);
-      chrome.storage.local.set({ candidates: next }, () => sendResponse({ ok: true }));
+  if (msg.type === "DELETE_MANUAL_GIG") {
+    chrome.storage.local.get({ manualCandidates: [] }, ({ manualCandidates }) => {
+      const next = manualCandidates.filter((c) => c.id !== msg.id);
+      chrome.storage.local.set({ manualCandidates: next }, () => sendResponse({ ok: true }));
     });
     return true;
   }

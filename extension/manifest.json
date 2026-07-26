@@ -1,21 +1,22 @@
 {
   "manifest_version": 3,
   "name": "Fiverr Candidate AHP Evaluator",
-  "version": "0.1.0",
-  "description": "Scrape Fiverr gig pages and rank candidates with your AHP model (Experience / Cost / Charisma) to pick the best hire.",
+  "version": "0.2.0",
+  "description": "Live AHP scoring overlay for Fiverr and Fiverr Pro search, category, and saved-list pages: rank candidates as you filter, with on-page score badges and a floating stats panel.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "AHP Candidate Evaluator"
   },
   "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["https://www.fiverr.com/*"],
+  "host_permissions": ["https://www.fiverr.com/*", "https://pro.fiverr.com/*"],
   "background": {
     "service_worker": "background.js"
   },
   "content_scripts": [
     {
-      "matches": ["https://www.fiverr.com/*"],
+      "matches": ["https://www.fiverr.com/*", "https://pro.fiverr.com/*"],
       "js": ["content.js"],
+      "css": ["overlay.css"],
       "run_at": "document_idle"
     }
   ],
