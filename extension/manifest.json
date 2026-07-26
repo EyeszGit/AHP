@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Fiverr Candidate AHP Evaluator",
-  "version": "0.2.0",
-  "description": "Live AHP scoring overlay for Fiverr and Fiverr Pro search, category, and saved-list pages: rank candidates as you filter, with on-page score badges and a floating stats panel.",
+  "version": "0.3.0",
+  "description": "Live AHP hiring-assistant overlay for Fiverr and Fiverr Pro: rank candidates on any page with 2+ cards, with on-page score badges, clearly-labeled shortlist/discard controls, and a fixed Ranking/Shortlist/Settings panel.",
   "action": {
     "default_popup": "popup.html",
     "default_title": "AHP Candidate Evaluator"

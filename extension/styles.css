@@ -79,3 +79,14 @@ footer button.danger { background: #fff; color: #ef4444; border: 1px solid #ef44
   cursor: pointer;
 }
 .ctx-export:hover { background: #f5f7f9; }
+
+.popup-banner {
+  font-size: 10.5px;
+  color: #374151;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 0 0 10px;
+  line-height: 1.4;
+}
