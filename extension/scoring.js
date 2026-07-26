@@ -5,10 +5,10 @@
 // within each group, min-max normalization, best-tier-not-applicable here
 // because the content script only captures the currently-open package tier.
 //
-// Default top-level weights match Ray's stated AHP judgment:
-//   Charisma > Experience > Cost, Charisma vs Cost = 4.5x (moderate),
-//   Experience placed at the consistent geometric midpoint (sqrt(4.5)).
-const DEFAULT_WEIGHTS = { Experience: 0.2783, Cost: 0.1312, Charisma: 0.5904 };
+// Default top-level weights match Ray's stated AHP judgment (updated 2026-07-26):
+//   Experience > Charisma > Cost, Experience vs Cost = 4.5x (moderate),
+//   Charisma placed at the consistent geometric midpoint (sqrt(4.5)).
+const DEFAULT_WEIGHTS = { Experience: 0.5904, Cost: 0.1312, Charisma: 0.2783 };
 
 function minMaxNormalize(values, higherIsBetter = true) {
   const nums = values.map((v) => (typeof v === "number" && !isNaN(v) ? v : null));
