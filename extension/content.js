@@ -1,4 +1,4 @@
-// content.js — v0.3
+// content.js — v0.4
 //
 // Runs on fiverr.com and pro.fiverr.com. Two modes:
 //
@@ -32,6 +32,15 @@
 //   4. Expensive vs. peers of the same rank/level?      -> Cost is normalized
 //      WITHIN a seller-level/tier bucket, not just globally, when the
 //      "Compare cost within same tier" setting is on (default: on).
+//
+// v0.4 additions:
+//   - Each card's badge now shows the Experience / Cost / Charisma sub-scores
+//     that scoreVisible() already computes, not just the blended final score.
+//   - autoLoadAllPages() automatically clicks through Fiverr's "Show more
+//     freelancers" pagination (confirmed live 2026-07-27: `.show-more-button`)
+//     so ranking/shortlisting considers every candidate in a search, not just
+//     the first batch — toggleable from Settings ("Automatically load all
+//     results", default on).
 
 const PRO_CARD_SELECTOR = ".listings-expert-card-container";
 const GIG_CARD_SELECTOR = ".gig-wrapper.basic-gig-card";
@@ -385,7 +394,7 @@ function scoreVisible(candidates, weights, settings) {
 // ---------- state ----------
 
 const DEFAULT_WEIGHTS = { Experience: 0.5904, Cost: 0.1312, Charisma: 0.2783 };
-const DEFAULT_SETTINGS = { peerRelativeCost: true };
+const DEFAULT_SETTINGS = { peerRelativeCost: true, autoLoadAll: true };
 
 let currentContext = null;
 let currentWeights = { ...DEFAULT_WEIGHTS };
@@ -398,6 +407,11 @@ let activeTab = "ranking";
 let renderScheduled = false;
 let selfMutating = false;
 let currentMode = "none"; // 'confirmed' | 'generic' | 'none'
+
+// Auto-load-all-pages state (task: don't just score page 1 — pull in every
+// candidate Fiverr's own "Show more" pagination would otherwise gate behind
+// manual clicks, so ranking/shortlisting considers the whole result set).
+let autoLoadState = { running: false, done: false, clicks: 0, contextKey: null };
 
 function activeProject() {
   const proj = shortlistProjects.projects[shortlistProjects.activeId];
@@ -473,6 +487,119 @@ function removeFromShortlist(id) {
   saveShortlistProjects();
 }
 
+// ---------- auto-load-all-pages ----------
+//
+// Fiverr Pro search/category/list pages don't paginate via a new URL — they
+// gate additional candidates behind a "Show more freelancers" button
+// (confirmed live 2026-07-27: `.show-more-button`, click appends more
+// `.listings-expert-card-container` cards into the SAME page and the button
+// disappears once nothing more is left to load). Left alone, this means
+// ranking only ever considers whichever subset the user has manually
+// clicked into view. This loop clicks it automatically — with a visible
+// "loading" status, a hard cap so it can't run away on a huge category, and
+// a stuck-detector so it stops if clicking stops adding candidates.
+const SHOW_MORE_SELECTOR = ".show-more-button";
+const AUTO_LOAD_MAX_CLICKS = 40;
+const AUTO_LOAD_MAX_CARDS = 500;
+
+function findShowMoreButton() {
+  const btn = document.querySelector(SHOW_MORE_SELECTOR);
+  if (btn) return btn;
+  // Fallback for markup we haven't confirmed live: a standalone button whose
+  // ENTIRE text is a "show/load more" phrase (deliberately strict — matching
+  // on partial text inside a bigger button risks clicking something
+  // unrelated, like a "Load more reviews" widget nested in a card).
+  const candidates = [...document.querySelectorAll("button")];
+  return (
+    candidates.find((b) => /^(show|load|see) more( freelancers| gigs| results)?$/i.test((b.textContent || "").trim())) ||
+    null
+  );
+}
+
+function countConfirmedCards() {
+  return document.querySelectorAll(CONFIRMED_CARD_SELECTOR).length;
+}
+
+function waitForCardCountToSettle(prevCount, { timeoutMs = 6000, intervalMs = 250, stableChecksNeeded = 2 } = {}) {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    let last = prevCount;
+    let stable = 0;
+    const tick = () => {
+      const cur = countConfirmedCards();
+      if (cur === last) {
+        stable++;
+      } else {
+        stable = 0;
+        last = cur;
+      }
+      if (stable >= stableChecksNeeded || Date.now() - start >= timeoutMs) {
+        resolve(cur);
+        return;
+      }
+      setTimeout(tick, intervalMs);
+    };
+    setTimeout(tick, intervalMs);
+  });
+}
+
+function renderAutoLoadStatus() {
+  const panel = document.getElementById("ahp-panel");
+  const el = panel && panel.querySelector("#ahp-autoload-status");
+  if (!el) return;
+  el.classList.remove("ahp-autoload-done");
+  if (autoLoadState.running) {
+    el.hidden = false;
+    el.textContent = `Loading all results… ${countConfirmedCards()} candidates loaded so far`;
+  } else if (autoLoadState.done && autoLoadState.clicks > 0) {
+    el.hidden = false;
+    el.classList.add("ahp-autoload-done");
+    el.textContent = `All ${countConfirmedCards()} candidates loaded (${autoLoadState.clicks + 1} batches) — ranking covers the full search.`;
+  } else {
+    el.hidden = true;
+  }
+}
+
+// Only auto-clicks when the CONFIRMED selector is what found our cards —
+// generic-fallback pages have no known "load more" contract, so we don't
+// guess at clicking buttons there.
+async function autoLoadAllPages() {
+  if (currentSettings.autoLoadAll === false) return;
+  if (currentMode !== "confirmed") return;
+  if (autoLoadState.contextKey !== currentContext.key) {
+    autoLoadState = { running: false, done: false, clicks: 0, contextKey: currentContext.key };
+  }
+  if (autoLoadState.running || autoLoadState.done) return;
+
+  autoLoadState.running = true;
+  renderAutoLoadStatus();
+
+  let stuckStreak = 0;
+  while (autoLoadState.clicks < AUTO_LOAD_MAX_CLICKS) {
+    if (currentSettings.autoLoadAll === false) break; // user turned it off mid-run
+    const before = countConfirmedCards();
+    if (before >= AUTO_LOAD_MAX_CARDS) break;
+    const btn = findShowMoreButton();
+    if (!btn || btn.disabled) break;
+    btn.click();
+    autoLoadState.clicks++;
+    renderAutoLoadStatus();
+    const after = await waitForCardCountToSettle(before);
+    if (after <= before) {
+      stuckStreak++;
+      if (stuckStreak >= 2) break; // clicking stopped adding candidates — bail out rather than loop forever
+    } else {
+      stuckStreak = 0;
+    }
+    scheduleRender();
+  }
+
+  autoLoadState.running = false;
+  autoLoadState.done = true;
+  renderAutoLoadStatus();
+  scheduleRender();
+}
+
 // ---------- rendering: per-card overlay ----------
 
 function renderCardOverlay(cardEl, scored, rank, tierClass) {
@@ -487,9 +614,19 @@ function renderCardOverlay(cardEl, scored, rank, tierClass) {
     cardEl.classList.add(tierClass);
   }
 
+  // Show the blended score AND the 3 criteria it's built from, right on the
+  // card — Ray asked for the sub-scores to be visible, not just the final
+  // number, since scoreVisible() already computes all of them per candidate.
+  const s = scored.scores;
   const badge = document.createElement("div");
   badge.className = `ahp-badge ${rank === 1 ? "ahp-rank-1" : ""}`;
-  badge.innerHTML = `<span class="ahp-badge-rank">#${rank}</span><span class="ahp-score">${scored.scores.final.toFixed(2)}</span>`;
+  badge.innerHTML = `
+    <div class="ahp-badge-top"><span class="ahp-badge-rank">#${rank}</span><span class="ahp-score">${s.final.toFixed(2)}</span></div>
+    <div class="ahp-badge-breakdown">
+      <span class="ahp-badge-chip" title="Experience: skilled, able to deliver, fits the team">Exp ${s.experience.toFixed(2)}</span>
+      <span class="ahp-badge-chip" title="Cost: available, affordable, timely">Cost ${s.cost.toFixed(2)}</span>
+      <span class="ahp-badge-chip" title="Charisma: understands needs, communicates, collaborates">Char ${s.charisma.toFixed(2)}</span>
+    </div>`;
   cardEl.prepend(badge);
 
   const snapshot = { ...scored };
@@ -559,6 +696,7 @@ function ensurePanel() {
     </div>
     <div class="ahp-panel-body">
       <div class="ahp-tab-panel" data-tab-panel="ranking">
+        <p class="ahp-autoload-status" id="ahp-autoload-status" hidden></p>
         <div class="ahp-panel-summary" id="ahp-panel-summary"></div>
         <div id="ahp-panel-list"></div>
       </div>
@@ -590,6 +728,10 @@ function ensurePanel() {
         <label class="ahp-toggle-row">
           <input type="checkbox" id="ahp-peer-cost-toggle" />
           <span>Compare cost within the same seller tier<span class="ahp-settings-note">Is this candidate expensive vs. peers of similar rank/level, not just the cheapest overall?</span></span>
+        </label>
+        <label class="ahp-toggle-row">
+          <input type="checkbox" id="ahp-autoload-toggle" />
+          <span>Automatically load all results<span class="ahp-settings-note">Click through Fiverr's "Show more" pagination for you, so ranking and shortlisting cover every candidate in the search — not just the first page.</span></span>
         </label>
       </div>
     </div>`;
@@ -627,6 +769,18 @@ function ensurePanel() {
     currentSettings = { ...currentSettings, peerRelativeCost: e.target.checked };
     saveSettings();
     scheduleRender();
+  });
+
+  panel.querySelector("#ahp-autoload-toggle").addEventListener("change", (e) => {
+    currentSettings = { ...currentSettings, autoLoadAll: e.target.checked };
+    saveSettings();
+    if (e.target.checked) {
+      // Turning it back on should re-arm the loop for this context.
+      autoLoadState = { running: false, done: false, clicks: 0, contextKey: currentContext.key };
+      autoLoadAllPages();
+    } else {
+      renderAutoLoadStatus();
+    }
   });
 
   panel.querySelector("#ahp-project-select").addEventListener("change", (e) => {
@@ -707,12 +861,14 @@ function renderSettingsTab(panel) {
   panel.querySelector("#ahp-w-cost").value = Math.round(currentWeights.Cost * 100);
   panel.querySelector("#ahp-w-cost-val").textContent = currentWeights.Cost.toFixed(2);
   panel.querySelector("#ahp-peer-cost-toggle").checked = currentSettings.peerRelativeCost !== false;
+  panel.querySelector("#ahp-autoload-toggle").checked = currentSettings.autoLoadAll !== false;
 }
 
 function renderPanel(scoredRanked, totalOnPage) {
   const panel = ensurePanel();
   renderPanelChrome(panel);
   panel.querySelector("#ahp-panel-context").textContent = currentContext.label;
+  renderAutoLoadStatus();
 
   // Ranking tab
   const decisionValues = Object.values(decisions);
@@ -903,6 +1059,7 @@ function boot() {
     if (cards.length >= 2) {
       runScanAndRender();
       startObserver();
+      autoLoadAllPages();
     } else {
       document.getElementById("ahp-panel")?.remove();
       injectSingleGigButton();

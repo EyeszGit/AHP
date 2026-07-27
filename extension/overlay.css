@@ -9,19 +9,23 @@
   left: 8px;
   z-index: 2147483000;
   display: flex !important;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
   background: #111827 !important;
   color: #fff !important;
   font: 600 11px/1.2 -apple-system, Segoe UI, Roboto, Arial, sans-serif !important;
-  padding: 4px 8px !important;
-  border-radius: 999px !important;
+  padding: 6px 9px !important;
+  border-radius: 12px !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
   pointer-events: none;
 }
 .ahp-badge.ahp-rank-1 { background: #1dbf73 !important; }
+.ahp-badge-top { display: flex !important; align-items: center; gap: 6px; }
 .ahp-badge .ahp-badge-rank { font-weight: 700; }
 .ahp-badge .ahp-score { opacity: 0.85; font-weight: 500; }
+.ahp-badge-breakdown { display: flex !important; gap: 6px; font-size: 9px; font-weight: 500; opacity: 0.85; }
+.ahp-badge-chip { white-space: nowrap; }
 
 .ahp-card-tier-lead { outline: 2px solid #1dbf73 !important; outline-offset: -2px; }
 .ahp-card-tier-mid { outline: 2px solid transparent !important; }
@@ -159,6 +163,22 @@
 
 .ahp-panel-summary { display: flex; gap: 10px; font-size: 10.5px; color: #6b7280; margin-bottom: 10px; flex-wrap: wrap; }
 .ahp-panel-summary b { color: #111827; }
+
+.ahp-autoload-status {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin: 0 0 8px;
+}
+.ahp-autoload-status.ahp-autoload-done {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
 
 .ahp-row {
   display: grid;

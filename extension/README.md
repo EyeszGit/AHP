@@ -1,9 +1,28 @@
 # Fiverr Candidate AHP Evaluator (Chrome extension)
 
-v0.3 — a fixed, always-on, tabbed "AHP Hiring Assistant" panel that lives
+v0.4 — a fixed, always-on, tabbed "AHP Hiring Assistant" panel that lives
 directly on Fiverr / Fiverr Pro pages: rank candidates live against each
-other, shortlist the ones you like across pages, and tune the model from a
-dedicated Settings tab. No popup-hunting required.
+other — across the ENTIRE search, not just the first page — shortlist the
+ones you like across pages, and tune the model from a dedicated Settings
+tab. No popup-hunting required.
+
+## What changed in v0.4
+
+- **Per-criterion score breakdown on every card.** The badge already showed
+  the blended final score (`#1  0.74`); it now also shows the three numbers
+  that went into it — `Exp 0.82`, `Cost 0.65`, `Char 0.90` — right on the
+  card, since `scoreVisible()` was already computing all three per candidate.
+- **Auto-loads every page of results.** Fiverr Pro search/category/list pages
+  gate additional candidates behind a "Show more freelancers" button —
+  previously, ranking only ever considered whatever subset you'd manually
+  clicked into view. The extension now clicks through that pagination
+  automatically (confirmed live: `.show-more-button`) as soon as a page
+  loads, with a visible "Loading all results…" status in the panel while it
+  runs, so the full candidate set is scored and shortlist-able, not just
+  page 1. Toggle it off in Settings ("Automatically load all results") if you
+  ever want to control pagination manually instead. Capped at 40 clicks /
+  500 candidates as a safety net, and it stops itself if clicking stops
+  adding candidates (so it can't spin forever on a broken page).
 
 ## What changed in v0.3
 
@@ -51,8 +70,11 @@ dedicated Settings tab. No popup-hunting required.
 - **Grid mode** (the main feature): any Fiverr / Fiverr Pro page with 2+
   recognizable candidate cards — search, category, saved "Freelance network"
   lists, or anything else — gets:
-  - a rank + score badge on every card (`#1  0.74`)
+  - a rank + score badge on every card (`#1  0.74`) with the Experience /
+    Cost / Charisma sub-scores shown underneath it
   - a green outline on the current top tier, dimming on the bottom tier
+  - automatic pagination — the full result set loads and gets scored without
+    you needing to click "Show more" yourself (toggleable in Settings)
   - **"+ Shortlist"** and **"✕ Discard"** buttons on every card (labeled, not
     bare icons) — Discard removes a candidate from the live scoring pool on
     *this page only*; Shortlist adds them to a project that follows you
@@ -84,7 +106,7 @@ dedicated Settings tab. No popup-hunting required.
 | 2 | `.gig-wrapper.basic-gig-card` (confirmed live 2026-07-26) | The classic gig-grid card ("Full catalog" toggle, either domain) |
 | 3 | Generic fallback (best-effort) | Any page: looks for 2+ repeated same-tag/same-class elements that each contain a link and a price-like piece of text. Used only when priorities 1–2 together find fewer than 2 cards. Covers agency cards and future/redesigned markup we haven't seen live yet — expect this to be less precise than 1–2, and to occasionally mis-group unrelated repeated layout elements. |
 
-**Grid-mode field limitation (still true in v0.3):** cards only expose
+**Grid-mode field limitation (still true in v0.4):** cards only expose
 rating / review count / price / seller level (gig cards only) / a couple of
 quality flags — not delivery time or revisions (those only appear inside an
 individual gig page). So grid-mode scoring is an adapted, smaller model:
@@ -123,6 +145,12 @@ individual gig page). So grid-mode scoring is an adapted, smaller model:
    tab — they stay there. Navigate to a *different* search or category and
    check the Shortlist tab again: same candidates, still there, still
    ranked against each other.
+5. Watch the top of the **Ranking** tab right after the page loads — an amber
+   "Loading all results…" status means it's clicking through Fiverr's "Show
+   more freelancers" pagination for you; it turns green ("All N candidates
+   loaded…") once done, and the badges/panel reflect the full set, not just
+   the first batch. Turn "Automatically load all results" off in **Settings**
+   if you'd rather click "Show more" yourself.
 5. Click **"✕ Discard"** on a card — it dims and drops out of the ranking
    pool on this page (click **"↺ Restore"** to bring it back).
 6. Open the **Settings** tab: drag the weight sliders (see how each maps to
@@ -159,6 +187,13 @@ Chrome doesn't auto-reload unpacked extensions:
   (by search query / category path / list ID) — a different query or
   category is a different context, by design. Shortlist entries, by
   contrast, are NOT page-scoped — they follow you everywhere.
+- **Auto-load stopped partway through a big category** → it's capped at 40
+  "Show more" clicks / 500 candidates as a safety net, and it also stops
+  itself if two clicks in a row add nothing (treated as "stuck," not
+  "finished," to avoid spinning forever) — the amber/green status line in the
+  Ranking tab always shows the true state. It also only runs on pages where
+  the confirmed selectors found the cards; it deliberately does not attempt
+  to click buttons on generic-fallback pages.
 
 ## Known limitations / what's still not done
 
@@ -184,6 +219,17 @@ Chrome doesn't auto-reload unpacked extensions:
   or monetization plumbing of any kind. (Ray's stated pricing idea —
   roughly $2/mo, $9/yr, $14.99 lifetime, targeting Fiverr hirers — is a
   business plan note, not something implemented in this codebase.)
+- **Auto-load only recognizes Fiverr's current "Show more" button** — a
+  standalone confirmed selector (`.show-more-button`) plus a strict text-only
+  fallback (a button whose entire text is "Show/Load/See more…"). If Fiverr
+  switches to true URL-based pagination (separate page URLs) instead of an
+  in-place "load more," this won't follow it — that would need a different
+  approach (auto-navigating between page URLs) rather than auto-clicking.
+- **Auto-load can make a search feel slower on very large categories** — each
+  click waits for the new cards to settle before clicking again, so loading
+  everything on a 500-candidate category takes longer than loading page 1
+  alone. That's the deliberate trade-off for "consider all options" over
+  speed; turn the Settings toggle off if you'd rather see page 1 instantly.
 
 ## Suggested next steps
 
